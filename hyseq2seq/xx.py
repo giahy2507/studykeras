@@ -1,27 +1,42 @@
-from keras.models import Sequential
+from __future__ import absolute_import
+from __future__ import print_function
+
 import numpy as np
-from keras.layers.recurrent import SimpleRNN, GRU, LSTM
-from keras.layers.core import TimeDistributedDense, Activation
+from keras.models import Sequential
+from keras.layers.core import Dense, Activation, RepeatVector, TimeDistributedDense
+from keras.layers.embeddings import Embedding
+from keras.layers.recurrent import LSTM, GRU
 
-n_in = 684
-n_out = 684
-n_hidden = 512
-n_samples = 2297
-n_timesteps = 87
+import logging
 
-model = Sequential()
-model.add(GRU(n_hidden, return_sequences=True, input_shape=(n_timesteps,n_in)))
-model.add(TimeDistributedDense(n_out))
-model.compile(loss='mse', optimizer='rmsprop')
+import datetime
+print("Started at: " + str(datetime.datetime.now()))
 
-X = np.random.random((n_samples, n_timesteps, n_in))
-Y = np.random.random((n_samples, n_timesteps, n_out))
+logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
+logger = logging.getLogger()
 
-Xp = model.predict(X)
-print Xp.shape
-print Y.shape
+xs = []
 
-model.fit(X, Y, nb_epoch=1)
+maxlen = 100
+max_features=maxlen + 1
+from numpy.random import shuffle
 
-hyhy = model.predict(X)
-print hyhy.shape
+r = range(1, maxlen + 1, 1)
+
+for i in range(1000):
+    shuffle(r)
+    new_x = r[::]
+    xs.append(new_x)
+
+def to_one_hot(id):
+    zeros = [0] * max_features
+    zeros[id] = 1
+    return zeros
+
+xs = np.asarray(xs)
+
+ys = map(lambda x: map(to_one_hot, x), xs)
+ys = np.asarray(ys)
+
+print("XS Shape: ", xs.shape)
+print("YS Shape: ", ys.shape)
