@@ -6,6 +6,8 @@ import numpy as np
 from keras.utils import np_utils
 from keras.callbacks import EarlyStopping
 
+import pickle
+
 
 def to_mycategorical(y, nb_classes=None):
     '''Convert class vector (integers from 0 to nb_classes)
@@ -26,7 +28,7 @@ in_len = 20
 out_len = 10
 embsize = 25
 hidden_dim = 50
-batch_size = 10000
+batch_size = 50000
 
 np.random.RandomState(4488)
 
@@ -62,9 +64,13 @@ def train():
 
     model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
 
-    earlystoping = EarlyStopping(patience=50)
+    earlystoping = EarlyStopping(patience=20)
 
-    model.fit(X_train,y_train, nb_epoch=50, validation_split=0.2, callbacks=[earlystoping])
+    model.fit(X_train,y_train, nb_epoch=100, validation_split=0.2, callbacks=[earlystoping])
+
+    with open("hyseq2seq.pickle", mode="wb") as f:
+        pickle.dump(model.get_weights(), f)
+
 if __name__ == "__main__":
     train()
 
