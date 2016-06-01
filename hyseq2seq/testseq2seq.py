@@ -4,8 +4,8 @@ from keras.layers import Dense,Embedding,LSTM, RepeatVector, Activation, Dropout
 from keras.preprocessing import sequence
 import numpy as np
 from keras.utils import np_utils
-from keras.callbacks import EarlyStopping
-
+from keras.callbacks import EarlyStopping, ModelCheckpoint, Callback
+import warnings
 import pickle
 
 
@@ -111,8 +111,6 @@ def preparedata():
         count = line.count(" ")
         his[count] += 1
 
-    print("ttdt")
-
     tokenizer = Tokenizer()
     tokenizer.fit_on_texts(lines)
     sequences = tokenizer.texts_to_sequences(lines)
@@ -120,7 +118,67 @@ def preparedata():
     with open("data_tokenizer.pickle", mode="wb") as f:
         pickle.dump((X_data,tokenizer),f)
 
+
+class MyModelCheckPoint(Callback):
+    def __init__(self, filepath, monitor='val_loss', verbose=0,
+                 save_best_only=False, mode='auto'):
+
+        super(Callback, self).__init__()
+        self.monitor = monitor
+        self.verbose = verbose
+        self.filepath = filepath
+        self.save_best_only = save_best_only
+
+        if mode not in ['auto', 'min', 'max']:
+            warnings.warn('ModelCheckpoint mode %s is unknown, '
+                          'fallback to auto mode.' % (mode),
+                          RuntimeWarning)
+            mode = 'auto'
+
+        if mode == 'min':
+            self.monitor_op = np.less
+            self.best = np.Inf
+        elif mode == 'max':
+            self.monitor_op = np.greater
+            self.best = -np.Inf
+        else:
+            if 'acc' in self.monitor:
+                self.monitor_op = np.greater
+                self.best = -np.Inf
+            else:
+                self.monitor_op = np.less
+                self.best = np.Inf
+
+    def on_epoch_end(self, epoch, logs={}):
+        filepath = self.filepath.format(epoch=epoch, **logs)
+        if self.save_best_only:
+            current = logs.get(self.monitor)
+            if current is None:
+                warnings.warn('Can save best model only with %s available, '
+                              'skipping.' % (self.monitor), RuntimeWarning)
+            else:
+                if self.monitor_op(current, self.best):
+                    if self.verbose > 0:
+                        print('Epoch %05d: %s improved from %0.5f to %0.5f,'
+                              ' saving model to %s'
+                              % (epoch, self.monitor, self.best,
+                                 current, filepath))
+                    self.best = current
+                    with open(filepath, mode="wb") as f:
+                        pickle.dump(self.model.get_weights(),f)
+                else:
+                    if self.verbose > 0:
+                        print('Epoch %05d: %s did not improve' %
+                              (epoch, self.monitor))
+        else:
+            if self.verbose > 0:
+                print('Epoch %05d: saving model to %s' % (epoch, filepath))
+            with open(filepath, mode="wb") as f:
+                pickle.dump(self.model.get_weights(),f)
+
 if __name__ == "__main__":
+
+    # preparedata()
 
     with open("data_tokenizer.pickle", mode="rb") as f:
         X_data,tokenizer = pickle.load(f)
@@ -137,9 +195,10 @@ if __name__ == "__main__":
 
     model = nn_model(vocab_size,in_len,out_len,embsize,hidden_dim)
 
-    earlystoping = EarlyStopping(patience=20)
+    earlystoping = EarlyStopping(patience=10)
+    modelcheckpoint = MyModelCheckPoint("hyseq2seq.model",verbose=1,save_best_only=True)
 
-    model.fit(X_train,y_train,batch_size=32,nb_epoch=50,validation_split=0.2,callbacks=[earlystoping])
+    model.fit(X_train,y_train,batch_size=32,nb_epoch=20,validation_split=0.2,callbacks=[earlystoping,modelcheckpoint])
 
     with open("hyseq2seq.pickle", mode="wb") as f:
         pickle.dump(model.get_weights(), f)
